@@ -1,13 +1,15 @@
 import time
 import gevent
 import hashlib
+import datetime
+import os
 
 import events
 from exception import StopLocust
 from log import console_logger
 
 STATS_NAME_WIDTH = 60
-
+ 
 class RequestStatsAdditionError(Exception):
     pass
 
@@ -496,8 +498,27 @@ def print_error_report():
     console_logger.info("-" * (80 + STATS_NAME_WIDTH))
     console_logger.info("")
 
+def store_stats(filename, stats):
+    if not os.path.exists(filename):
+        with open(filename,"w") as f:
+            f.write("Time, Test, Method ,Number of requests, Requests per Seconds, Number of failures, Minimal response time, Maximal response time, Average response time, 50%-th, 60%-th, 70%-th, 90%-th\n")
+
+    with open(filename, "a") as f:
+            for k in stats:
+                r = stats[k]
+                l = r.num_reqs_per_sec.values()
+                avg_req_s = reduce(lambda x, y: x + y, l)/len(l)
+                f.write("%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n" % (time.strftime("%Y-%m-%d_%H:%M"), r.name, r.method, r.num_requests, avg_req_s, r.num_failures, r.min_response_time, r.max_response_time, r.avg_response_time, r.get_response_time_percentile(.5), r.get_response_time_percentile(.6), r.get_response_time_percentile(.7), r.get_response_time_percentile(.9)));
+        
+
 def stats_printer():
     from runners import locust_runner
     while True:
         print_stats(locust_runner.request_stats)
+        gevent.sleep(2)
+
+def stats_persist(filename):
+    from runners import locust_runner
+    while True:
+        store_stats(filename, locust_runner.request_stats);
         gevent.sleep(2)
